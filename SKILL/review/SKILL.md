@@ -62,7 +62,9 @@ description: Interactive, read-only review of one Git commit or a Gerrit patch s
 
 ## 6. 只保存 Gerrit 草稿（按需）
 
-遵循 [references/gerrit.md](references/gerrit.md)：SSH 仅用于只读查询，保存草稿使用 REST Draft 接口。核对身份、SHA、Patch Set、锚点和既有草稿，获授权后逐条 `PUT /changes/{change-id}/revisions/{revision-id}/drafts`，记录 draft ID 并读回验证。没有可用的 HTTP 认证时，保留本地预览并报告阻碍，绝不回退到 SSH review 或 REST Set Review。
+新建问题评论的草稿必须显式设置 `unresolved: true`，保存为未解决问题；读回时也核对该字段。不要依赖接口默认值，以免评论被标为 resolved。只有用户明确要求时才设置为已解决；不自动更改已有评论线程的状态。未解决状态与草稿/发布状态独立，设置此字段不会发布评论。
+
+遵循 [references/gerrit.md](references/gerrit.md)：SSH 仅用于只读查询，保存草稿使用 `http://gerrit.dc.com:8080` 的 REST Draft 接口，配合 `--noproxy gerrit.dc.com --netrc`；其他实例按用户指定配置。核对身份、SHA、Patch Set、锚点和既有草稿，获授权后逐条 `PUT /changes/{change-id}/revisions/{revision-id}/drafts`，记录 draft ID 并读回验证。没有可用的 HTTP 认证时，保留本地预览并报告阻碍，绝不回退到 SSH review 或 REST Set Review。
 
 单条 commit 草稿保存后，series 未结束则保留会话。全部审完、所选草稿都保存并核实且无待办，或用户明确决定不保存并结束时，按 [references/session.md](references/session.md) 仅清理本次会话。保存失败、中断或还有后续 commit 时保留状态。清理本地记录不影响服务端草稿，也不会发布草稿。
 

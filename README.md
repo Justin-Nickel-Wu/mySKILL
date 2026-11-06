@@ -108,7 +108,7 @@ python3 ~/.agents/skills/review/scripts/session.py list --workspace "$PWD" --rep
 
 - Gerrit 实例、Change / Patch Set 要可确认，且本地 Commit SHA 与 Gerrit Revision SHA 必须一致。
 - 默认通过 `ssh -p 29418 gerrit.dc.com`，使用已有 SSH key、agent 或 SSH 配置认证；可按任务指定其他主机、端口和用户名。不要把私钥或口令写入 Skill、状态文件或仓库。
-- SSH 仅用 `gerrit query --format=JSON` 做只读查询；保存未发布草稿使用 HTTPS REST Draft 接口，需要实际 Web URL 和已有 HTTP 认证。缺少认证时只保留本地预览。
+- SSH 仅用 `gerrit query --format=JSON` 做只读查询；保存未发布草稿使用 `http://gerrit.dc.com:8080` 的 REST Draft 接口，使用 `--noproxy gerrit.dc.com --netrc`。HTTP 凭据保存在用户的 `~/.netrc`（权限 600），不写入仓库。账号认证已由用户验证，草稿写入权限仍需实际请求验证。缺少认证时只保留本地预览。
 - 禁止调用 SSH `gerrit review` 或 REST Set Review 发布评论。只保存草稿，不投票、Submit 或添加 reviewer。草稿保存不发送发布通知，也不改变以后人工发布的通知设置。
 
 说明：Skill 是 Agent 工作流程规范，不是额外安装的 Gerrit 插件；实际执行取决于 Codex CLI 可访问的文件系统/网络/认证与执行权限。若权限不足，它应报告阻碍，而非声称成功。
