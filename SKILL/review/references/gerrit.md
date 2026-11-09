@@ -39,13 +39,17 @@ curl --noproxy gerrit.dc.com --fail-with-body --silent --show-error --netrc "${G
 
 ## 2. 预览与位置核对
 
-展示 R#、Change、Patch Set、完整 SHA、path、side、line 和完整中文正文；得到保存指定草稿的明确授权后才写远端。
+展示 R#、Change、Patch Set、完整 SHA、path、side、range（或单行 line）、选中代码片段和完整中文正文；得到保存指定草稿的明确授权后才写远端。
 
 `path` 为目标文件仓库相对路径，`line` 为从 1 开始的物理行号。新增和修改用 REVISION，删除用 PARENT；用匹配 SHA 的文件内容核对。重命名、合并提交的父侧及 range 需额外核实。正文日常、简短、直接，技术条件和影响不能省略到失真。
 
+优先使用最小 `range`：只选关键表达式、参数、条件或必要的少量相邻语句。能用单行字符范围说明的问题不扩展到多行，不为上下文选整个函数、宏或大段代码。不连续的问题位置选择主要触发点，在正文指出其他位置，不用大范围把它们包起来。整行问题或字符范围无法可靠核实时退回单行 `line`，不猜坐标。
+
+`range` 的行号从 1 开始，字符偏移从 0 开始，起点包含、终点不包含；`line` 与 `range.end_line` 一致。按目标版本实际文本计算 UTF-16 字符偏移，Tab 是一个字符而非显示宽度；核对范围非空、起止顺序及每行边界。以下示例假定目标第 169 行的关键表达式正好位于字符偏移 4 至 16，实际使用时必须重新计算。
+
 ## 3. 先查重，再逐条保存
 
-先查询当前账号在目标 revision 上的草稿，按 revision、path、side、line、message 查重。网络或认证失败不能当作空列表。Gerrit JSON 可能带首行 XSSI 前缀，解析时先核对并移除该前缀，不将错误页当成 JSON。
+先查询当前账号在目标 revision 上的草稿，按 revision、path、side、line、range、message 查重。范围不同不能当作同一锚点；疑似同一问题但范围不同，先核实，不自动重复创建。网络或认证失败不能当作空列表。Gerrit JSON 可能带首行 XSSI 前缀，解析时先核对并移除该前缀，不将错误页当成 JSON。
 
 ```bash
 curl --noproxy gerrit.dc.com --fail-with-body --silent --show-error --netrc "${GERRIT_BASE_URL}/a/changes/${CHANGE_ID}/revisions/${REVISION_SHA}/drafts/"
@@ -58,6 +62,12 @@ curl --noproxy gerrit.dc.com --fail-with-body --silent --show-error --netrc "${G
   "path": "subsys/ras/ras_queue.c",
   "side": "REVISION",
   "line": 169,
+  "range": {
+    "start_line": 169,
+    "start_character": 4,
+    "end_line": 169,
+    "end_character": 16
+  },
   "unresolved": true,
   "message": "这里先检查一下索引范围，超过队列容量会越界访问。"
 }
@@ -76,7 +86,7 @@ curl --noproxy gerrit.dc.com --fail-with-body --silent --show-error --netrc -X P
 
 ## 4. 读回与失败处理
 
-- 成功响应后记录 draft ID，再 GET 目标 revision 的 drafts，核对 id、path、side、line、unresolved 和完整 message；字段缺失或不符合预期时保留未验证状态。只报告实际保存并核实的草稿，不称“已发布”。
+- 成功响应后记录 draft ID，再 GET 目标 revision 的 drafts，核对 id、path、side、line、range（使用时）、unresolved 和完整 message；字段缺失或不符合预期时保留未验证状态。只报告实际保存并核实的草稿，不称“已发布”。
 - 超时或断线可能发生在服务器已保存之后；先查询查重再决定重试。无法确认时保留会话和未确认项，不盲目重试。
 - 已经公开发布的评论不能通过创建草稿恢复为未发布；本流程不自动删除或修改历史评论。
 - 按 session 规范仅清理本次本地记录和临时 JSON，不删除服务端草稿或其他任务文件。不调用 Publish、Set Review、投票或 Submit。
